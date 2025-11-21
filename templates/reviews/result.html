@@ -1,0 +1,32 @@
+{% extends "reviews/base.html" %}
+{% block content %}
+  <h2>Review result — {{ review.submission.title }}</h2>
+
+  <h3>Summary</h3>
+  <pre>{{ review.summary }}</pre>
+
+  <h3>Issues</h3>
+  <ul>
+  {% for i in review.issues %}
+    <li><strong>{{ i.severity }}</strong> ({{ i.type }}) — {{ i.message }} {% if i.line %} at line {{ i.line }}{% endif %}</li>
+  {% empty %}
+    <li>No issues found (or model returned none).</li>
+  {% endfor %}
+  </ul>
+
+  <h3>Suggestions</h3>
+  {% for s in review.suggestions %}
+    <div class="suggestion">
+      <p><strong>{{ s.description }}</strong></p>
+      <pre><code>{{ s.patch }}</code></pre>
+    </div>
+  {% empty %}
+    <p>No suggestions provided.</p>
+  {% endfor %}
+
+  <h3>Quality Score</h3>
+  <p>{{ review.quality_score }}</p>
+
+  <a href="{% url 'reviews:index' %}">New review</a> |
+  <a href="{% url 'reviews:history' %}">History</a>
+{% endblock %}

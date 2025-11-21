@@ -1,0 +1,10 @@
+{% extends "reviews/base.html" %}
+{% block content %}
+  <h2>Submit code for review</h2>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Review Code</button>
+  </form>
+  <p class="hint">Tip: paste short code or upload a small file. Keep file size under {{ MAX_FILE_UPLOAD_MB|default:5 }} MB.</p>
+{% endblock %}

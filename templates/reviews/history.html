@@ -1,0 +1,14 @@
+{% extends "reviews/base.html" %}
+{% block content %}
+  <h2>Recent submissions</h2>
+  <ul>
+  {% for s in subs %}
+    <li>
+      <a href="{% for r in s.reviews.all %}{% if forloop.first %}{% url 'reviews:detail' r.id %}{% endif %}{% endfor %}">
+        {{ s.title }}
+      </a> — {{ s.created_at }}
+    </li>
+  {% endfor %}
+  </ul>
+  <a href="{% url 'reviews:index' %}">Back</a>
+{% endblock %}

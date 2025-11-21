@@ -1,0 +1,7 @@
+body { font-family: Arial, sans-serif; background: #f7f7f7; color:#222; }
+.container { max-width:900px; margin:30px auto; background:#fff; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
+header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+a { color:#1a73e8; text-decoration:none; }
+pre { background:#fafafa; padding:12px; border-radius:4px; overflow:auto; }
+.suggestion { border-left:4px solid #eee; padding-left:10px; margin-bottom:12px; }
+.hint { color:#666; font-size:0.9rem; }
