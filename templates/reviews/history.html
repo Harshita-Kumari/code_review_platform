@@ -1,14 +1,17 @@
 {% extends "reviews/base.html" %}
 {% block content %}
+<section class="card">
   <h2>Recent submissions</h2>
-  <ul>
-  {% for s in subs %}
-    <li>
-      <a href="{% for r in s.reviews.all %}{% if forloop.first %}{% url 'reviews:detail' r.id %}{% endif %}{% endfor %}">
-        {{ s.title }}
-      </a> — {{ s.created_at }}
-    </li>
-  {% endfor %}
+  <ul class="history-list">
+    {% for s in subs %}
+      <li>
+        <a href="{% for r in s.reviews.all %}{% if forloop.first %}{% url 'reviews:detail' r.id %}{% endif %}{% endfor %}">{{ s.title }}</a>
+        <div class="muted">{{ s.created_at }}</div>
+      </li>
+    {% empty %}
+      <li>No submissions yet.</li>
+    {% endfor %}
   </ul>
   <a href="{% url 'reviews:index' %}">Back</a>
+</section>
 {% endblock %}

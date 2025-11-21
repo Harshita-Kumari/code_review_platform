@@ -1,3 +1,4 @@
+# reviews/llm_client.py
 import json
 import requests
 from django.conf import settings
@@ -27,6 +28,7 @@ def call_openai_chat(prompt: str, model=None, max_tokens=1200, temperature=0.0):
             return msg.get("content") or ""
     return json.dumps(data)
 
+
 def call_anthropic_messages(prompt: str, model=None, max_tokens=1200, temperature=0.0):
     api_key = settings.ANTHROPIC_API_KEY
     if not api_key:
@@ -44,6 +46,7 @@ def call_anthropic_messages(prompt: str, model=None, max_tokens=1200, temperatur
         if "completion" in d:
             return d["completion"]
     return json.dumps(d)
+
 
 def call_llm(prompt: str, provider=None, **kwargs):
     provider = provider or settings.LLM_PROVIDER

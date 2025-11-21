@@ -1,7 +1,122 @@
-body { font-family: Arial, sans-serif; background: #f7f7f7; color:#222; }
-.container { max-width:900px; margin:30px auto; background:#fff; padding:20px; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-a { color:#1a73e8; text-decoration:none; }
-pre { background:#fafafa; padding:12px; border-radius:4px; overflow:auto; }
-.suggestion { border-left:4px solid #eee; padding-left:10px; margin-bottom:12px; }
-.hint { color:#666; font-size:0.9rem; }
+:root{
+  --bg:#f6f8fa;
+  --card:#ffffff;
+  --muted:#6b7280;
+  --accent:#2563eb;
+  --radius:10px;
+  --max-w:920px;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#111}
+.app-shell{min-height:100vh;display:flex;flex-direction:column}
+
+/* Top bar */
+.topbar{
+  background:#fff;
+  border-bottom:1px solid #e6e9ee;
+  padding:14px 24px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  box-shadow:0 1px 0 rgba(0,0,0,0.02)
+}
+.brand a{font-weight:700;color:var(--accent);text-decoration:none;font-size:1.3rem}
+.navlinks a{margin-left:16px;color:#374151;text-decoration:none}
+
+/* Main layout */
+.main{flex:1;padding:28px;display:flex;justify-content:center}
+.card{background:var(--card);max-width:var(--max-w);width:100%;border-radius:var(--radius);box-shadow:0 6px 18px rgba(15,23,42,0.06);padding:20px}
+.form-card h2,.result-card h2{margin:0 0 12px 0}
+
+/* Form */
+.form-row{margin-bottom:12px}
+.form-row input[type="text"], .form-row select, .form-row textarea{
+  width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:0.95rem
+}
+.form-row input[type="file"]{margin-top:6px}
+.form-actions{margin-top:12px}
+.btn-primary{background:var(--accent);color:#fff;padding:10px 16px;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+.btn-primary:disabled{opacity:0.6}
+.hint{color:var(--muted);font-size:0.9rem;margin-top:8px}
+
+/* Messages */
+.messages{max-width:var(--max-w);margin-bottom:12px}
+.message{padding:10px;border-radius:8px;margin:6px 0}
+.message.error{background:#fee2e2;color:#991b1b}
+.message.warning{background:#fff7ed;color:#78350f}
+.message.success{background:#ecfdf5;color:#065f46}
+
+/* Result specific styling */
+.result-header{display:flex;justify-content:space-between;align-items:center}
+.meta{color:var(--muted);font-size:0.9rem}
+.section{margin-top:18px}
+
+/* =========================
+   FIX for summary (important)
+   ========================= */
+.summary{
+  background:#fbfdff;
+  padding:14px;
+  border-radius:8px;
+  border:1px solid #eef2ff;
+
+  /* ensure high contrast */
+  color: #111 !important;          /* strong dark color */
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap;          /* preserve line breaks but wrap long lines */
+  word-wrap: break-word;
+  margin: 0;
+}
+
+/* If there are links inside the summary, make them readable */
+.summary a{
+  color: #1d4ed8;
+  text-decoration: underline;
+  opacity: 1;
+}
+
+/* Issues, suggestions */
+ul{margin:8px 0 0 18px}
+.suggestion{margin-bottom:12px}
+
+/* Code / patches & raw response - keep dark theme for code blocks */
+.code-toolbar{display:flex;justify-content:flex-end;margin-bottom:6px}
+.copy-btn{background:#e6eefc;color:var(--accent);border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:600}
+
+/* code blocks for patches/raw response */
+pre, pre code{
+  background:#0b1221;
+  color:#cde6ff;
+  padding:12px;
+  border-radius:8px;
+  overflow:auto;
+  white-space:pre-wrap;
+  word-break:break-word;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
+  font-size: 0.9rem;
+}
+
+/* patch / suggestion pre area - keep readable */
+pre#patch-1, pre#patch-2, pre[id^="patch-"]{
+  /* inherit pre styles above; keep same color scheme */
+}
+
+/* quality score */
+.score{font-size:1.6rem;font-weight:700;color:var(--accent)}
+
+.footer{background:transparent;padding:14px;text-align:center;color:var(--muted);font-size:0.9rem}
+.history-list{list-style:none;padding:0;margin:0}
+.history-list li{padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center}
+.muted{color:var(--muted);font-size:0.9rem}
+.actions{margin-top:18px}
+
+/* responsive */
+@media (max-width:700px){
+  .topbar{padding:12px}
+  .brand a{font-size:1.1rem}
+  .main{padding:16px}
+}

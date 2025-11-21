@@ -1,32 +1,60 @@
 {% extends "reviews/base.html" %}
 {% block content %}
-  <h2>Review result — {{ review.submission.title }}</h2>
+<section class="card result-card">
+  <div class="result-header">
+    <h2>Review result — {{ review.submission.title }}</h2>
+    <div class="meta">Language: {{ review.submission.language }} | Date: {{ review.created_at }}</div>
+  </div>
 
-  <h3>Summary</h3>
-  <pre>{{ review.summary }}</pre>
+  <div class="section">
+    <h3>Summary</h3>
+    <pre class="summary">{{ review.summary|default:"No summary provided." }}</pre>
+  </div>
 
-  <h3>Issues</h3>
-  <ul>
-  {% for i in review.issues %}
-    <li><strong>{{ i.severity }}</strong> ({{ i.type }}) — {{ i.message }} {% if i.line %} at line {{ i.line }}{% endif %}</li>
-  {% empty %}
-    <li>No issues found (or model returned none).</li>
-  {% endfor %}
-  </ul>
+  <div class="section">
+    <h3>Issues</h3>
+    <ul>
+      {% for i in review.issues %}
+        <li><strong>{{ i.severity }}</strong> ({{ i.type }}) — {{ i.message }} {% if i.line %}<span class="muted">line {{ i.line }}</span>{% endif %}</li>
+      {% empty %}
+        <li>No issues found or model returned none.</li>
+      {% endfor %}
+    </ul>
+  </div>
 
-  <h3>Suggestions</h3>
-  {% for s in review.suggestions %}
-    <div class="suggestion">
-      <p><strong>{{ s.description }}</strong></p>
-      <pre><code>{{ s.patch }}</code></pre>
+  <div class="section">
+    <h3>Suggestions</h3>
+    {% if review.suggestions %}
+      {% for s in review.suggestions %}
+        <div class="suggestion">
+          <p><strong>{{ s.description }}</strong></p>
+          <div class="code-toolbar">
+            <button class="copy-btn" data-target="patch-{{ forloop.counter }}">Copy</button>
+          </div>
+          <pre id="patch-{{ forloop.counter }}"><code>{{ s.patch }}</code></pre>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No suggestions provided.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h3>Quality Score</h3>
+    <div class="score">{{ review.quality_score|default:"N/A" }}</div>
+  </div>
+
+  <div class="section">
+    <h3>Raw response</h3>
+    <div class="code-toolbar">
+      <button class="copy-btn" data-target="raw-response">Copy</button>
     </div>
-  {% empty %}
-    <p>No suggestions provided.</p>
-  {% endfor %}
+    <pre id="raw-response"><code>{{ pretty_raw }}</code></pre>
+  </div>
 
-  <h3>Quality Score</h3>
-  <p>{{ review.quality_score }}</p>
-
-  <a href="{% url 'reviews:index' %}">New review</a> |
-  <a href="{% url 'reviews:history' %}">History</a>
+  <p class="actions">
+    <a href="{% url 'reviews:index' %}" class="btn-link">New review</a> |
+    <a href="{% url 'reviews:history' %}" class="btn-link">History</a>
+  </p>
+</section>
 {% endblock %}

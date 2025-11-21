@@ -1,10 +1,39 @@
 {% extends "reviews/base.html" %}
 {% block content %}
-  <h2>Submit code for review</h2>
-  <form method="post" enctype="multipart/form-data">
+<section class="card form-card">
+  <h2>Get an AI Code Review</h2>
+
+  <form method="post" enctype="multipart/form-data" id="review-form">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Review Code</button>
+    <div class="form-row">
+      {{ form.title.label_tag }}<br>
+      {{ form.title }}
+    </div>
+
+    <div class="form-row">
+      {{ form.language.label_tag }}<br>
+      {{ form.language }}
+    </div>
+
+    <div class="form-row">
+      {{ form.code.label_tag }}<br>
+      {{ form.code }}
+    </div>
+
+    <div class="form-row">
+      {{ form.upload.label_tag }}<br>
+      {{ form.upload }}
+      <div id="upload-info" class="hint"></div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" id="submit-btn" class="btn-primary">
+        <span id="btn-text">Review Code</span>
+        <span id="btn-spinner" class="spinner" style="display:none"></span>
+      </button>
+    </div>
   </form>
-  <p class="hint">Tip: paste short code or upload a small file. Keep file size under {{ MAX_FILE_UPLOAD_MB|default:5 }} MB.</p>
+
+  <p class="hint">Tip: paste code or upload a small .py/.js/.java/.txt file. Max {{ max_file_mb }} MB.</p>
+</section>
 {% endblock %}
