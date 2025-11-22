@@ -22,7 +22,7 @@
         <!-- Monaco editor renders here -->
         <div id="editor" class="code-editor"></div>
 
-        <!-- Django textarea (hidden after Monaco loads, fallback if JS fails) -->
+        <!-- Django textarea (fallback) -->
         {{ form.code }}
       </div>
 
@@ -37,6 +37,16 @@
       <div id="upload-info" class="hint"></div>
     </div>
 
+    <div class="form-row">
+      {{ form.repo_url.label_tag }}<br>
+      {{ form.repo_url }}
+      <p class="hint small">
+        Example: <code>https://github.com/username/repo</code> or
+        <code>https://github.com/username/repo/tree/branch</code>.
+        Leave empty if you are uploading a file/ZIP.
+      </p>
+    </div>
+
     <div class="form-actions">
       <button type="submit" id="submit-btn" class="btn-primary">
         <span id="btn-text">Review code</span>
@@ -47,7 +57,8 @@
 
   <p class="hint">
     Tip: paste code, upload a single .py/.js/.java/.txt file,
-    or upload a <strong>.zip project folder</strong>. Max {{ max_file_mb }} MB.
+    upload a <strong>.zip project folder</strong>, or just paste a
+    <strong>GitHub repository URL</strong>. Max {{ max_file_mb }} MB.
   </p>
 </section>
 {% endblock %}

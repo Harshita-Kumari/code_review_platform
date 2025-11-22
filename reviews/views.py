@@ -1,4 +1,11 @@
 # reviews/views.py
+import json
+import re
+import imghdr
+import zipfile
+import io
+
+import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.conf import settings
@@ -9,52 +16,77 @@ from .models import Submission, Review
 from .prompts import build_review_prompt
 from .llm_client import call_llm
 
-import json
-import re
-import imghdr
-import zipfile
-import io
-
-# allowed code extensions for both single files & zip contents
 ALLOWED_CODE_EXT = (".py", ".js", ".java", ".txt", ".md")
 
 
-def _iter_zip_code_files(upload_file, per_file_limit):
+def _iter_zip_bytes(zip_bytes: bytes, per_file_limit: int):
     """
-    Yield (file_path, code_text) for each code file inside a ZIP.
-    Only returns files with extension in ALLOWED_CODE_EXT.
-    Truncates each file to per_file_limit characters.
+    Yield (file_path, text) for each code file inside a ZIP archive given as bytes.
+    Only includes ALLOWED_CODE_EXT extensions.
     """
-    data = upload_file.read()
-    try:
-        zf = zipfile.ZipFile(io.BytesIO(data))
-    except zipfile.BadZipFile:
-        raise ValueError("Uploaded ZIP file is invalid or corrupted.")
-
+    zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
     for info in zf.infolist():
         if info.is_dir():
             continue
-
         name = info.filename
         if not any(name.lower().endswith(ext) for ext in ALLOWED_CODE_EXT):
-            # skip non-code files
             continue
-
         try:
             file_bytes = zf.read(info)
             text = file_bytes.decode("utf-8", errors="ignore")
         except Exception:
-            # skip unreadable files
             continue
-
         text = text.strip()
         if not text:
             continue
-
         if len(text) > per_file_limit:
             text = text[:per_file_limit]
-
         yield name, text
+
+
+def _download_github_repo_zip(repo_url: str) -> bytes:
+    """
+    Given a GitHub repo URL, download its ZIP (main/master or specific branch).
+    Supports:
+      - https://github.com/user/repo
+      - https://github.com/user/repo/
+      - https://github.com/user/repo.git
+      - https://github.com/user/repo/tree/branch
+    """
+    url = repo_url.strip()
+    if not url.startswith("http"):
+        raise ValueError("Please enter a full GitHub URL starting with https://")
+    if "github.com" not in url:
+        raise ValueError("Only GitHub URLs from github.com are supported.")
+
+    # strip .git if present
+    if url.endswith(".git"):
+        url = url[:-4]
+
+    branch = "main"
+    if "/tree/" in url:
+        base, _, branch_part = url.partition("/tree/")
+        base_url = base
+        branch = branch_part.strip("/").split("/")[0] or "main"
+    else:
+        base_url = url
+
+    def build_zip_url(br: str) -> str:
+        return base_url.rstrip("/") + f"/archive/refs/heads/{br}.zip"
+
+    try_order = [branch, "main", "master"]
+    last_status = None
+
+    for br in try_order:
+        zip_url = build_zip_url(br)
+        resp = requests.get(zip_url, timeout=60)
+        last_status = resp.status_code
+        if resp.status_code == 200:
+            return resp.content
+
+    raise ValueError(
+        f"Could not download ZIP from GitHub. Last HTTP status: {last_status}."
+    )
 
 
 def index(request):
@@ -65,11 +97,13 @@ def index(request):
         language = form.cleaned_data["language"]
         base_code = form.cleaned_data["code"] or ""
         upload = request.FILES.get("upload")
+        repo_url = form.cleaned_data.get("repo_url") or ""
 
-        # no upload: behave like before, review base_code only
-        if not upload and not base_code.strip():
+        # prevent both upload and repo_url at same time
+        if upload and repo_url:
             messages.error(
-                request, "Please paste code or upload a code file / ZIP project."
+                request,
+                "Please either upload a file/ZIP or enter a GitHub repository URL, not both.",
             )
             return render(
                 request,
@@ -77,7 +111,18 @@ def index(request):
                 {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
             )
 
-        # create submission early (represents whole review request / project)
+        if not upload and not repo_url and not base_code.strip():
+            messages.error(
+                request,
+                "Please paste code, upload a file/ZIP, or enter a GitHub repository URL.",
+            )
+            return render(
+                request,
+                "reviews/index.html",
+                {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
+            )
+
+        # create submission (represents this review request / project)
         submission = Submission.objects.create(
             title=title,
             language=language,
@@ -85,55 +130,40 @@ def index(request):
             user=request.user if request.user.is_authenticated else None,
         )
 
-        # ---------- CASE 1: ZIP PROJECT (per-file reviews) ----------
-        if upload and upload.name.lower().endswith(".zip"):
-            # file size limit
-            if upload.size > settings.MAX_FILE_UPLOAD_MB * 1024 * 1024:
-                messages.error(
-                    request,
-                    f"Uploaded ZIP is too large (max {settings.MAX_FILE_UPLOAD_MB} MB).",
-                )
-                submission.delete()
-                return render(
-                    request,
-                    "reviews/index.html",
-                    {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
-                )
-
-            # detect images (if somebody renamed image to .zip)
-            head = upload.read(512)
-            upload.seek(0)
-            if imghdr.what(None, head) is not None:
-                messages.error(
-                    request,
-                    "Detected an image file. Please upload a real ZIP project or code file.",
-                )
-                submission.delete()
-                return render(
-                    request,
-                    "reviews/index.html",
-                    {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
-                )
-
+        # ===================== CASE 1: GITHUB REPO URL =====================
+        if repo_url:
             try:
-                files = list(
-                    _iter_zip_code_files(upload, per_file_limit=settings.MAX_CODE_CHARS)
-                )
+                zip_bytes = _download_github_repo_zip(repo_url)
             except ValueError as e:
-                messages.error(request, str(e))
                 submission.delete()
+                messages.error(request, str(e))
                 return render(
                     request,
                     "reviews/index.html",
                     {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
                 )
 
-            if not files:
+            if len(zip_bytes) > settings.MAX_FILE_UPLOAD_MB * 1024 * 1024:
+                submission.delete()
                 messages.error(
                     request,
-                    "No readable .py/.js/.java/.txt/.md files found inside ZIP.",
+                    f"Downloaded repo ZIP is too large (max {settings.MAX_FILE_UPLOAD_MB} MB).",
                 )
+                return render(
+                    request,
+                    "reviews/index.html",
+                    {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
+                )
+
+            files = list(
+                _iter_zip_bytes(zip_bytes, per_file_limit=settings.MAX_CODE_CHARS)
+            )
+            if not files:
                 submission.delete()
+                messages.error(
+                    request,
+                    "No readable .py/.js/.java/.txt/.md files found in the GitHub repository.",
+                )
                 return render(
                     request,
                     "reviews/index.html",
@@ -141,8 +171,8 @@ def index(request):
                 )
 
             created_reviews = []
+
             for file_path, file_code in files:
-                # combine optional base_code (global context) + file code
                 combined_code = base_code.strip()
                 if combined_code:
                     combined_code += "\n\n"
@@ -155,7 +185,6 @@ def index(request):
                 try:
                     raw = call_llm(prompt)
                 except Exception as e:
-                    # record error but continue with other files
                     Review.objects.create(
                         submission=submission,
                         file_path=file_path,
@@ -166,7 +195,114 @@ def index(request):
                     )
                     continue
 
-                # parse JSON
+                try:
+                    parsed = json.loads(raw)
+                except Exception:
+                    m = re.search(r"\{.*\}", raw, re.S)
+                    if m:
+                        try:
+                            parsed = json.loads(m.group(0))
+                        except Exception:
+                            parsed = {"raw": raw}
+                    else:
+                        parsed = {"raw": raw}
+
+                review = Review.objects.create(
+                    submission=submission,
+                    file_path=file_path,
+                    summary=parsed.get("summary", "") if isinstance(parsed, dict) else "",
+                    issues=parsed.get("issues", []) if isinstance(parsed, dict) else [],
+                    suggestions=parsed.get("suggestions", [])
+                    if isinstance(parsed, dict)
+                    else [],
+                    tests_suggestions=parsed.get("tests_suggestions", "")
+                    if isinstance(parsed, dict)
+                    else "",
+                    quality_score=parsed.get("quality_score", None)
+                    if isinstance(parsed, dict)
+                    else None,
+                    raw_response={"raw": raw},
+                    processed=True,
+                )
+                created_reviews.append(review)
+
+            messages.info(
+                request,
+                f"Created {len(created_reviews)} file-level reviews from GitHub repo.",
+            )
+            return redirect(
+                reverse(
+                    "reviews:project_detail", kwargs={"submission_id": submission.id}
+                )
+            )
+
+        # ===================== CASE 2: ZIP UPLOAD (per-file) =====================
+        if upload and upload.name.lower().endswith(".zip"):
+            if upload.size > settings.MAX_FILE_UPLOAD_MB * 1024 * 1024:
+                submission.delete()
+                messages.error(
+                    request,
+                    f"Uploaded ZIP is too large (max {settings.MAX_FILE_UPLOAD_MB} MB).",
+                )
+                return render(
+                    request,
+                    "reviews/index.html",
+                    {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
+                )
+
+            head = upload.read(512)
+            upload.seek(0)
+            if imghdr.what(None, head) is not None:
+                submission.delete()
+                messages.error(
+                    request,
+                    "Detected an image file. Please upload a real ZIP project or code file.",
+                )
+                return render(
+                    request,
+                    "reviews/index.html",
+                    {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
+                )
+
+            zip_bytes = upload.read()
+            files = list(
+                _iter_zip_bytes(zip_bytes, per_file_limit=settings.MAX_CODE_CHARS)
+            )
+            if not files:
+                submission.delete()
+                messages.error(
+                    request,
+                    "No readable .py/.js/.java/.txt/.md files found inside ZIP.",
+                )
+                return render(
+                    request,
+                    "reviews/index.html",
+                    {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
+                )
+
+            created_reviews = []
+            for file_path, file_code in files:
+                combined_code = base_code.strip()
+                if combined_code:
+                    combined_code += "\n\n"
+                combined_code += f"# FILE: {file_path}\n{file_code}"
+                if len(combined_code) > settings.MAX_CODE_CHARS:
+                    combined_code = combined_code[: settings.MAX_CODE_CHARS]
+
+                prompt = build_review_prompt(combined_code, language)
+                try:
+                    raw = call_llm(prompt)
+                except Exception as e:
+                    Review.objects.create(
+                        submission=submission,
+                        file_path=file_path,
+                        summary="Error calling LLM for this file.",
+                        processing_error=str(e),
+                        processed=False,
+                        raw_response={"raw": str(e)},
+                    )
+                    continue
+
                 try:
                     parsed = json.loads(raw)
                 except Exception:
@@ -202,22 +338,22 @@ def index(request):
                 request,
                 f"Created {len(created_reviews)} file-level reviews from ZIP project.",
             )
-            # go to project page listing all file reviews
             return redirect(
-                reverse("reviews:project_detail", kwargs={"submission_id": submission.id})
+                reverse(
+                    "reviews:project_detail", kwargs={"submission_id": submission.id}
+                )
             )
 
-        # ---------- CASE 2: SINGLE FILE OR ONLY TEXT ----------
-        # if there is an upload but not zip → treat as one file
+        # ===================== CASE 3: SINGLE FILE or PASTED TEXT =====================
         code = base_code
 
         if upload:
             if upload.size > settings.MAX_FILE_UPLOAD_MB * 1024 * 1024:
+                submission.delete()
                 messages.error(
                     request,
                     f"Uploaded file is too large (max {settings.MAX_FILE_UPLOAD_MB} MB).",
                 )
-                submission.delete()
                 return render(
                     request,
                     "reviews/index.html",
@@ -227,11 +363,11 @@ def index(request):
             head = upload.read(512)
             upload.seek(0)
             if imghdr.what(None, head) is not None:
+                submission.delete()
                 messages.error(
                     request,
                     "Detected an image file. Please upload a text code file.",
                 )
-                submission.delete()
                 return render(
                     request,
                     "reviews/index.html",
@@ -249,8 +385,8 @@ def index(request):
             try:
                 file_content = upload.read().decode("utf-8", errors="ignore")
             except Exception:
-                messages.error(request, "Unable to read uploaded file as text.")
                 submission.delete()
+                messages.error(request, "Unable to read uploaded file as text.")
                 return render(
                     request,
                     "reviews/index.html",
@@ -258,11 +394,11 @@ def index(request):
                 )
 
             if len(code) + len(file_content) > settings.MAX_CODE_CHARS:
+                submission.delete()
                 messages.error(
                     request,
                     "Combined code too long. Please shorten the input.",
                 )
-                submission.delete()
                 return render(
                     request,
                     "reviews/index.html",
@@ -272,23 +408,22 @@ def index(request):
             code = code + "\n\n" + file_content
 
         if not code.strip():
+            submission.delete()
             messages.error(
                 request, "Please paste code or upload a small code file."
             )
-            submission.delete()
             return render(
                 request,
                 "reviews/index.html",
                 {"form": form, "max_file_mb": settings.MAX_FILE_UPLOAD_MB},
             )
 
-        # single review flow
         prompt = build_review_prompt(code, language)
         try:
             raw = call_llm(prompt)
         except Exception as e:
-            messages.error(request, f"LLM request failed: {e}")
             submission.delete()
+            messages.error(request, f"LLM request failed: {e}")
             return render(
                 request,
                 "reviews/index.html",
@@ -326,7 +461,7 @@ def index(request):
 
         return redirect(reverse("reviews:detail", kwargs={"pk": review.id}))
 
-    # GET path
+    # GET
     return render(
         request,
         "reviews/index.html",
