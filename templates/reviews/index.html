@@ -17,7 +17,18 @@
 
     <div class="form-row">
       {{ form.code.label_tag }}<br>
-      {{ form.code }}
+
+      <div id="editor-wrapper">
+        <!-- Monaco editor renders here -->
+        <div id="editor" class="code-editor"></div>
+
+        <!-- Django textarea (hidden after Monaco loads, fallback if JS fails) -->
+        {{ form.code }}
+      </div>
+
+      <p class="hint small">
+        If the editor doesn’t load, you can still type directly in the textarea.
+      </p>
     </div>
 
     <div class="form-row">
@@ -28,13 +39,15 @@
 
     <div class="form-actions">
       <button type="submit" id="submit-btn" class="btn-primary">
-        <span id="btn-text">Review Code</span>
+        <span id="btn-text">Review code</span>
         <span id="btn-spinner" class="spinner" style="display:none"></span>
       </button>
     </div>
   </form>
 
-  <p class="hint">  Tip: paste code OR upload a small .py/.js/.java/.txt file,
-  or a <strong>.zip project folder</strong>. Max {{ max_file_mb }} MB.</p>
+  <p class="hint">
+    Tip: paste code, upload a single .py/.js/.java/.txt file,
+    or upload a <strong>.zip project folder</strong>. Max {{ max_file_mb }} MB.
+  </p>
 </section>
 {% endblock %}

@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Code Review Platform</title>
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
   <link rel="stylesheet" href="{% static 'reviews/css/style.css' %}">
@@ -36,8 +37,19 @@
     </footer>
   </div>
 
+  <!-- Syntax highlighting for result page -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+
+  <!-- Monaco editor loader (MUST be before main.js) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+
+  <!-- Your app JS -->
   <script src="{% static 'reviews/js/main.js' %}"></script>
-  <script>hljs.highlightAll();</script>
+
+  <script>
+    if (window.hljs) {
+      hljs.highlightAll();
+    }
+  </script>
 </body>
 </html>
