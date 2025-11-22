@@ -5,8 +5,13 @@
   <ul class="history-list">
     {% for s in subs %}
       <li>
-        <a href="{% for r in s.reviews.all %}{% if forloop.first %}{% url 'reviews:detail' r.id %}{% endif %}{% endfor %}">{{ s.title }}</a>
-        <div class="muted">{{ s.created_at }}</div>
+        <div>
+          <a href="{% url 'reviews:project_detail' s.id %}">{{ s.title }}</a>
+          <div class="muted">{{ s.created_at }}</div>
+        </div>
+        <div class="muted">
+          {{ s.reviews.count }} file review{{ s.reviews.count|pluralize }}
+        </div>
       </li>
     {% empty %}
       <li>No submissions yet.</li>

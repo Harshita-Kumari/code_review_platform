@@ -1,0 +1,33 @@
+{% extends "reviews/base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Project Review — {{ submission.title }}</h2>
+  <p class="muted">
+    Language: {{ submission.language }} |
+    Created at: {{ submission.created_at }} |
+    Total file reviews: {{ reviews.count }}
+  </p>
+
+  <h3>Files reviewed</h3>
+  <ul class="history-list">
+    {% for r in reviews %}
+      <li>
+        <div>
+          <a href="{% url 'reviews:detail' r.id %}">{{ r.file_path|default:"Full code" }}</a>
+          <div class="muted">{{ r.created_at }}</div>
+        </div>
+        {% if r.quality_score %}
+          <div class="score">{{ r.quality_score }}</div>
+        {% endif %}
+      </li>
+    {% empty %}
+      <li>No reviews found for this submission.</li>
+    {% endfor %}
+  </ul>
+
+  <p class="actions">
+    <a href="{% url 'reviews:index' %}" class="btn-link">New review</a> |
+    <a href="{% url 'reviews:history' %}" class="btn-link">History</a>
+  </p>
+</section>
+{% endblock %}
