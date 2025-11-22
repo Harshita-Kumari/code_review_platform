@@ -1,6 +1,6 @@
 {% extends "reviews/base.html" %}
 {% block content %}
-<section class="card">
+<section class="card project-card">
   <h2>Project Review — {{ submission.title }}</h2>
   <p class="muted">
     Language: {{ submission.language }} |
@@ -8,22 +8,40 @@
     Total file reviews: {{ reviews.count }}
   </p>
 
-  <h3>Files reviewed</h3>
-  <ul class="history-list">
-    {% for r in reviews %}
-      <li>
-        <div>
-          <a href="{% url 'reviews:detail' r.id %}">{{ r.file_path|default:"Full code" }}</a>
-          <div class="muted">{{ r.created_at }}</div>
-        </div>
-        {% if r.quality_score %}
-          <div class="score">{{ r.quality_score }}</div>
-        {% endif %}
-      </li>
-    {% empty %}
-      <li>No reviews found for this submission.</li>
-    {% endfor %}
-  </ul>
+  <div class="project-layout">
+    <!-- LEFT: FILE TREE -->
+    <div class="file-tree-panel">
+      <h3>Project files</h3>
+      <p class="hint small">Click a file to open its detailed review.</p>
+      <div id="file-tree">
+        <!-- JS will build the tree here -->
+      </div>
+    </div>
+
+    <!-- RIGHT: FLAT LIST (fallback + data source for tree) -->
+    <div class="file-list-panel">
+      <h3>Files & scores</h3>
+      <ul class="history-list" id="raw-file-list">
+        {% for r in reviews %}
+          <li
+            data-file-path="{{ r.file_path|default:'(root code)' }}"
+            data-review-url="{% url 'reviews:detail' r.id %}"
+            data-score="{{ r.quality_score|default:'' }}"
+          >
+            <div>
+              <span class="file-path">{{ r.file_path|default:"(root code)" }}</span>
+              <div class="muted">{{ r.created_at }}</div>
+            </div>
+            {% if r.quality_score %}
+              <div class="score">{{ r.quality_score }}</div>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li>No reviews found for this submission.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
 
   <p class="actions">
     <a href="{% url 'reviews:index' %}" class="btn-link">New review</a> |

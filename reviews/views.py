@@ -486,16 +486,39 @@ def detail(request, pk):
         "reviews/result.html",
         {"review": review, "pretty_raw": pretty_raw},
     )
-
-
 def project_detail(request, submission_id):
     submission = get_object_or_404(Submission, id=submission_id)
-    reviews = submission.reviews.all().order_by("file_path", "created_at")
+    reviews_qs = submission.reviews.all().order_by("file_path", "created_at")
+
+    # Build simple "tree-like" list: each item has depth based on folder nesting
+    tree_items = []
+    for r in reviews_qs:
+        # If file_path is empty (single file review), give a friendly name
+        raw_path = r.file_path or "Full code"
+        # normalize
+        path = raw_path.strip("/")
+        depth = path.count("/")  # how deep in folders
+        file_name = path.split("/")[-1]
+        tree_items.append({
+            "review": r,
+            "path": path,
+            "file_name": file_name,
+            "depth": depth,
+        })
+
+    # Sort by path to group similar folders together
+    tree_items.sort(key=lambda n: n["path"])
+
     return render(
         request,
         "reviews/project_detail.html",
-        {"submission": submission, "reviews": reviews},
+        {
+            "submission": submission,
+            "reviews": reviews_qs,
+            "tree_items": tree_items,
+        },
     )
+
 
 
 def history(request):
